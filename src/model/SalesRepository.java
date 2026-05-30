@@ -1,17 +1,59 @@
 package model;
 
-// model/SalesRepository.java
+import model.order.Order;
+import java.io.*;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+
 // 판매 내역 영속화. 보고서의 sales.txt 파일 I/O.
-//
-// 책임:
-//  - save(Order completedOrder) : 제조 완료된 주문 1건을 sales.txt 에 append 한다.
-//      형식 예) yyyy-MM-dd HH:mm:ss | productId | productName | price | paymentType
-//  - loadAll() : 파일을 읽어 List<SalesRecord> (또는 List<String>) 으로 반환 → AdminView 가 표시.
-//
-// OOP 포인트:
-//  - 파일 I/O 요구사항을 담당하는 유일한 클래스 (단일 책임 원칙).
-//  - try-with-resources 로 BufferedReader / BufferedWriter 를 안전하게 사용.
-//  - IOException 은 검사 예외 → 호출부에 적절히 전파하거나 사용자에게 메시지로 표시.
-//
-// 동시성:
-//  - 여러 곳에서 동시에 save() 호출될 수 있으므로 메서드 단위 synchronized.
+// 파일 I/O 요구사항을 담당하는 유일한 클래스 (단일 책임 원칙).
+// try-with-resources로 BufferedReader/BufferedWriter 안전하게 사용.
+// IOException은 검사 예외 → 호출부에 적절히 전파하거나 사용자에게 메시지로 표시.
+// 여러 곳에서 동시에 save() 호출될 수 있으므로 메서드 단위 synchronized.
+public class SalesRepository {
+
+    private static final String FILE_PATH = "data/sales.txt";
+    private static final DateTimeFormatter FORMATTER =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    // 제조 완료된 주문 1건을 sales.txt에 append
+    // 형식: yyyy-MM-dd HH:mm:ss | orderId | productName | price | paymentType
+    public synchronized void save(Order completedOrder) {
+        String paymentType = completedOrder.getPayment()
+                                           .getClass()
+                                           .getSimpleName();
+        String record = completedOrder.getCreatedAt().format(FORMATTER)
+                + " | " + completedOrder.getOrderId()
+                + " | " + completedOrder.getProduct().getName()
+                + " | " + completedOrder.getProduct().getPrice()
+                + " | " + paymentType;
+
+        // try-with-resources: 자동으로 파일 닫아줌
+        try (BufferedWriter writer = new BufferedWriter(
+                new FileWriter(FILE_PATH, true))) { // true = append 모드
+            writer.write(record);
+            writer.newLine();
+            System.out.println("[판매 저장] " + record);
+        } catch (IOException e) {
+            System.out.println("판매 기록 저장 실패: " + e.getMessage());
+        }
+    }
+
+    // 파일을 읽어 List<String>으로 반환 → AdminView가 표시
+    public synchronized List<String> loadAll() {
+        List<String> records = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(
+                new FileReader(FILE_PATH))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.isBlank()) records.add(line);
+            }
+        } catch (FileNotFoundException e) {
+            System.out.println("판매 기록 파일이 없습니다. (첫 실행 시 정상)");
+        } catch (IOException e) {
+            System.out.println("판매 기록 읽기 실패: " + e.getMessage());
+        }
+        return records;
+    }
+}

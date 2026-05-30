@@ -24,3 +24,16 @@ package view;
 //
 // 다형성 활용 (보고서 p.5):
 //   "부모 타입(Product) 으로 리스트를 일괄 수집" → Inventory.listAll() 결과를 Product 타입으로 표시.
+
+public class MainMenuView {
+
+    /**
+     * 현재 재고를 다시 읽어 메뉴 표시를 갱신한다.
+     * InventoryController 에서 EDT 위에서 호출한다.
+     *
+     * TODO(김남주): JTextArea 갱신 로직 구현.
+     */
+    public void refreshMenuDisplay() {
+        // empty — 김남주가 구현
+    }
+}

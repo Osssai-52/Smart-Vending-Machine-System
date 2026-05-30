@@ -18,3 +18,7 @@ package view;
 //
 // 캡슐화:
 //  - 결제 결과 처리 로직(잔액 차감 등)은 절대 View 에 두지 않는다 → Controller / Model 이 담당.
+
+public class PaymentView {
+    // empty — 김남주가 구현
+}

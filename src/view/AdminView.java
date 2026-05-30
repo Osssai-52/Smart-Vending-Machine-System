@@ -1,5 +1,7 @@
 package view;
 
+import java.util.List;
+
 // view/AdminView.java
 // 관리자 시스템 화면.
 //
@@ -16,3 +18,16 @@ package view;
 //
 // 캡슐화:
 //  - 보충 수량 입력 검증(숫자 여부, 음수 여부)은 Controller 에서 책임지도록 위임.
+
+public class AdminView {
+
+    /**
+     * 매출 내역 List 를 받아 JTextArea 에 표시한다.
+     * AdminController.refreshAdminView() 에서 EDT 위에서 호출한다.
+     *
+     * TODO(김남주): JTextArea 갱신 로직 구현.
+     */
+    public void displaySales(List<String> records) {
+        // empty — 김남주가 구현
+    }
+}
