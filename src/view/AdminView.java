@@ -2,14 +2,16 @@ package view;
 
 
 import controller.AdminController;
+import controller.MachineController;
 import model.product.Product;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
 
-public class AdminView extends JFrame {
+public class AdminView extends JFrame implements StatusViewListener {
     private final AdminController adminController;
+    private final MachineController machineController;
     private JTextField productIdInput;
     private JTextField stockCountInput;
     private JTextArea salesLogArea;
@@ -19,8 +21,9 @@ public class AdminView extends JFrame {
     private JButton loadSalesButton;
     private JButton mainMenuButton;
 
-    public AdminView(AdminController adminController) {
+    public AdminView(AdminController adminController, MachineController machineController) {
         this.adminController = adminController;
+        this.machineController = machineController;
 
         setTitle("스마트 자판기 시스템 - 관리자 모드");
         setSize(750, 500);
@@ -72,8 +75,33 @@ public class AdminView extends JFrame {
         loadSalesButton.addActionListener(e -> handleLoadSales());
         mainMenuButton.addActionListener(e -> dispose());
 
+        // 사용자 결제로 재고가 줄어들 때마다 표가 자동으로 갱신되도록 리스너 등록.
+        // MachineController 가 MakerThread 이벤트를 받아 EDT 위에서 broadcast 한다.
+        machineController.registerStatusView(this);
+
         refreshInventoryTable();
         setVisible(true);
+    }
+
+    /**
+     * MakerThread 의 상태 변화 알림.
+     * 본 View 는 표시할 currentStatus / queueDetails 가 따로 없고,
+     * "재고가 줄었을 수 있다" 는 신호로만 사용 → 재고표를 다시 그린다.
+     * MachineController 가 이미 EDT 에서 broadcast 하므로 invokeLater 불필요.
+     */
+    @Override
+    public void onOrderStatusChanged(String currentStatus, String queueDetails) {
+        refreshInventoryTable();
+    }
+
+    /**
+     * 창이 닫힐 때(메인으로 버튼 or X 버튼) 리스너 해제.
+     * 안 하면 닫힌 후에도 MachineController 가 계속 알림을 보내 메모리 누수가 된다.
+     */
+    @Override
+    public void dispose() {
+        machineController.unregisterStatusView(this);
+        super.dispose();
     }
 
     private void handleReplenish() {

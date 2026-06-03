@@ -2,6 +2,7 @@ package view;
 
 import controller.OrderController;
 import controller.AdminController;
+import controller.MachineController;
 import model.product.Product;
 import javax.swing.*;
 import java.awt.*;
@@ -10,14 +11,18 @@ import java.util.List;
 public class MainMenuView extends JFrame {
     private final OrderController orderController;
     private final AdminController adminController;
+    private final MachineController machineController;   // AdminView 가 리스너 등록할 때 필요
     private JTextArea menuDisplayArea;
     private JTextField productIdInput;
     private JButton orderButton;
     private JButton adminButton;
 
-    public MainMenuView(OrderController orderController, AdminController adminController) {
+    public MainMenuView(OrderController orderController,
+                        AdminController adminController,
+                        MachineController machineController) {
         this.orderController = orderController;
         this.adminController = adminController;
+        this.machineController = machineController;
 
         setTitle("스마트 웰니스 자판기 시스템");
         setSize(550, 450);
@@ -87,6 +92,6 @@ public class MainMenuView extends JFrame {
     }
 
     private void handleAdminAction() {
-        new AdminView(adminController);
+        new AdminView(adminController, machineController);
     }
 }

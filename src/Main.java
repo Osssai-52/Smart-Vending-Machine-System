@@ -55,7 +55,8 @@ public class Main {
         // 4) UI 는 EDT 에서
         SwingUtilities.invokeLater(() -> {
             // 메인 메뉴 (각 View 의 생성자에서 setVisible(true) 호출함)
-            new MainMenuView(orderController, adminController);
+            // MachineController 도 함께 넘김 — MainMenuView 가 AdminView 생성 시 사용한다.
+            new MainMenuView(orderController, adminController, machineController);
 
             // 제조 대기 현황은 항상 띄워두고 콜백으로 갱신 → 매번 새 창 만들 필요 X
             new OrderStatusView(machineController);
