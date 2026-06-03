@@ -1,4 +1,2 @@
-# Sales log file
-# SalesRepository.save() 가 한 줄씩 append 한다.
-# 형식 예: yyyy-MM-dd HH:mm:ss | productId | productName | price | paymentType
-2026-06-03 20:50:21 | 1 | ����Ĩ | 1800 | CardPayment
+2026-06-03 21:43:19 | 1 | 홍차 | 2000 | CardPayment
+2026-06-03 21:43:56 | 2 | 녹차 | 2000 | CashPayment

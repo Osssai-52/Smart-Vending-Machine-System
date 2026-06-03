@@ -34,6 +34,13 @@ public class OrderQueue {
         return new ArrayList<>(queue);
     }
 
+    // WAITING 상태의 주문을 큐에서 직접 제거한다.
+    // OrderController.cancelOrder 가 호출 — 취소된 주문이 큐에 남아 MakerThread 가
+    // dequeue 후 setStatus(MAKING) 시도하면 잘못된 상태 전이로 예외가 나기 때문.
+    public synchronized boolean remove(Order order) {
+        return queue.remove(order);
+    }
+
     public synchronized int size()      { return queue.size(); }
     public synchronized boolean isEmpty() { return queue.isEmpty(); }
 }

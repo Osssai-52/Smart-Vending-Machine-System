@@ -2,6 +2,7 @@ package model;
 
 import model.order.Order;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +12,10 @@ import java.util.List;
 // try-with-resources로 BufferedReader/BufferedWriter 안전하게 사용.
 // IOException은 검사 예외 → 호출부에 적절히 전파하거나 사용자에게 메시지로 표시.
 // 여러 곳에서 동시에 save() 호출될 수 있으므로 메서드 단위 synchronized.
+//
+// 인코딩: 한글이 포함된 상품명을 OS 기본 인코딩(Windows=CP949) 에 맡기면
+// 다른 환경에서 깨질 수 있다. OutputStreamWriter/InputStreamReader 로
+// 명시적으로 UTF-8 을 지정해 환경 독립성을 확보한다.
 public class SalesRepository {
 
     private static final String FILE_PATH = "data/sales.txt";
@@ -29,9 +34,11 @@ public class SalesRepository {
                 + " | " + completedOrder.getProduct().getPrice()
                 + " | " + paymentType;
 
-        // try-with-resources: 자동으로 파일 닫아줌
+        // try-with-resources: 자동으로 파일 닫아줌.
+        // FileOutputStream(append=true) + OutputStreamWriter(UTF_8) 로 인코딩 명시.
         try (BufferedWriter writer = new BufferedWriter(
-                new FileWriter(FILE_PATH, true))) { // true = append 모드
+                new OutputStreamWriter(
+                    new FileOutputStream(FILE_PATH, true), StandardCharsets.UTF_8))) {
             writer.write(record);
             writer.newLine();
             System.out.println("[판매 저장] " + record);
@@ -44,7 +51,8 @@ public class SalesRepository {
     public synchronized List<String> loadAll() {
         List<String> records = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(
-                new FileReader(FILE_PATH))) {
+                new InputStreamReader(
+                    new FileInputStream(FILE_PATH), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 if (!line.isBlank()) records.add(line);

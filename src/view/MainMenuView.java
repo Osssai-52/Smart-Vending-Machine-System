@@ -13,7 +13,7 @@ public class MainMenuView extends JFrame {
     private final AdminController adminController;
     private final MachineController machineController;   // AdminView 가 리스너 등록할 때 필요
     private JTextArea menuDisplayArea;
-    private JTextField productIdInput;
+    private JTextField productNameInput;
     private JButton orderButton;
     private JButton adminButton;
 
@@ -40,12 +40,12 @@ public class MainMenuView extends JFrame {
         add(new JScrollPane(menuDisplayArea), BorderLayout.CENTER);
 
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
-        productIdInput = new JTextField(8);
+        productNameInput = new JTextField(12);
         orderButton = new JButton("주문하기");
         adminButton = new JButton("관리자 모드 진입");
 
-        bottomPanel.add(new JLabel("상품 ID 입력:"));
-        bottomPanel.add(productIdInput);
+        bottomPanel.add(new JLabel("상품명 입력:"));
+        bottomPanel.add(productNameInput);
         bottomPanel.add(orderButton);
         bottomPanel.add(adminButton);
         add(bottomPanel, BorderLayout.SOUTH);
@@ -60,7 +60,7 @@ public class MainMenuView extends JFrame {
     public void refreshMenuDisplay() {
         menuDisplayArea.setText("");
         menuDisplayArea.append(" ====================================================\n");
-        menuDisplayArea.append("   상품 ID\t상품 이름\t\t가격\t재고 상태\n");
+        menuDisplayArea.append("   상품 이름            가격        재고 상태\n");
         menuDisplayArea.append(" ====================================================\n");
 
         List<Product> products = orderController.getAvailableProducts();
@@ -69,29 +69,48 @@ public class MainMenuView extends JFrame {
         } else {
             for (Product p : products) {
                 String stockText = p.getStock() > 0 ? p.getStock() + "개" : "품절";
-                menuDisplayArea.append(String.format("   [%s]\t%-15s\t%d원\t%s\n", 
-                        p.getId(), p.getName(), p.getPrice(), stockText));
+                menuDisplayArea.append(String.format("   %-15s   %5d원     %s%n",
+                        p.getName(), p.getPrice(), stockText));
             }
         }
         menuDisplayArea.append(" ====================================================\n");
     }
 
     private void handleOrderAction() {
-        String productId = productIdInput.getText().trim();
-        if (productId.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "상품 ID를 입력해주세요.", "알림", JOptionPane.WARNING_MESSAGE);
+        String productName = productNameInput.getText().trim();
+        if (productName.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "상품명을 입력해주세요.", "알림", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        boolean isOrderCreated = orderController.createOrder(productId, "GuestUser");
+        boolean isOrderCreated = orderController.createOrder(productName, "GuestUser");
         if (isOrderCreated) {
-            productIdInput.setText("");
-            new PaymentView(this, orderController, productId);
+            productNameInput.setText("");
+            new PaymentView(this, orderController, productName);
         } else {
             JOptionPane.showMessageDialog(this, "존재하지 않거나 품절된 상품입니다.", "오류", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void handleAdminAction() {
+        // JPasswordField + showConfirmDialog 조합으로 비밀번호를 마스킹 입력받는다.
+        // (JOptionPane.showInputDialog 는 평문 노출이라 사용 안 함)
+        JPasswordField pwField = new JPasswordField(20);
+        int option = JOptionPane.showConfirmDialog(
+                this, pwField,
+                "관리자 인증 — 비밀번호를 입력하세요",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE);
+        if (option != JOptionPane.OK_OPTION) {
+            return;   // 사용자 취소
+        }
+
+        String password = new String(pwField.getPassword());
+        if (!adminController.authenticate(password)) {
+            JOptionPane.showMessageDialog(this,
+                    "비밀번호가 일치하지 않습니다.",
+                    "인증 실패", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         new AdminView(adminController, machineController);
     }
 }

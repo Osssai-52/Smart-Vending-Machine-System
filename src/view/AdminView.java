@@ -12,7 +12,7 @@ import java.util.List;
 public class AdminView extends JFrame implements StatusViewListener {
     private final AdminController adminController;
     private final MachineController machineController;
-    private JTextField productIdInput;
+    private JTextField productNameInput;
     private JTextField stockCountInput;
     private JTextArea salesLogArea;
     private JTable inventoryTable;
@@ -37,7 +37,7 @@ public class AdminView extends JFrame implements StatusViewListener {
         JPanel centerPanel = new JPanel(new GridLayout(1, 2, 15, 0));
         JPanel leftPanel = new JPanel(new BorderLayout(5, 5));
         
-        String[] columnNames = {"상품 ID", "상품명", "현재 재고"};
+        String[] columnNames = {"상품명", "가격", "현재 재고"};
         tableModel = new DefaultTableModel(columnNames, 0);
         inventoryTable = new JTable(tableModel);
         leftPanel.add(new JScrollPane(inventoryTable), BorderLayout.CENTER);
@@ -52,12 +52,12 @@ public class AdminView extends JFrame implements StatusViewListener {
 
         JPanel bottomPanel = new JPanel(new GridLayout(2, 1, 5, 5));
         JPanel inputRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 5));
-        productIdInput = new JTextField(6);
+        productNameInput = new JTextField(12);
         stockCountInput = new JTextField(6);
         replenishButton = new JButton("재고 보충");
 
-        inputRow.add(new JLabel("상품 ID:"));
-        inputRow.add(productIdInput);
+        inputRow.add(new JLabel("상품명:"));
+        inputRow.add(productNameInput);
         inputRow.add(new JLabel("보충 수량:"));
         inputRow.add(stockCountInput);
         inputRow.add(replenishButton);
@@ -105,22 +105,22 @@ public class AdminView extends JFrame implements StatusViewListener {
     }
 
     private void handleReplenish() {
-        String productId = productIdInput.getText().trim();
+        String productName = productNameInput.getText().trim();
         String countText = stockCountInput.getText().trim();
 
-        if (productId.isEmpty() || countText.isEmpty()) {
+        if (productName.isEmpty() || countText.isEmpty()) {
             JOptionPane.showMessageDialog(this, "모두 입력해주세요.", "알림", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        boolean isSuccess = adminController.replenishInventory(productId, countText);
+        boolean isSuccess = adminController.replenishInventory(productName, countText);
         if (isSuccess) {
             JOptionPane.showMessageDialog(this, "재고가 보충되었습니다.", "완료", JOptionPane.INFORMATION_MESSAGE);
-            productIdInput.setText("");
+            productNameInput.setText("");
             stockCountInput.setText("");
             refreshInventoryTable();
         } else {
-            JOptionPane.showMessageDialog(this, "재고 보충 실패 수량을 확인하세요.", "오류", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "재고 보충 실패 (상품명/수량을 확인하세요).", "오류", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -138,7 +138,7 @@ public class AdminView extends JFrame implements StatusViewListener {
         List<Product> productList = adminController.getAllProducts();
         if (productList != null) {
             for (Product p : productList) {
-                tableModel.addRow(new Object[]{p.getId(), p.getName(), p.getStock() + "개"});
+                tableModel.addRow(new Object[]{p.getName(), p.getPrice() + "원", p.getStock() + "개"});
             }
         }
     }

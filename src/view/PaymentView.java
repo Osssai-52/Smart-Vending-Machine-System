@@ -7,7 +7,7 @@ import java.awt.*;
 public class PaymentView extends JDialog {
     private final MainMenuView parentView;
     private final OrderController orderController;
-    private final String productId;
+    private final String productName;
 
     private JRadioButton cashRadio;
     private JRadioButton cardRadio;
@@ -17,11 +17,11 @@ public class PaymentView extends JDialog {
     private JButton cancelButton;
     private JLabel infoLabel;
 
-    public PaymentView(MainMenuView parentView, OrderController orderController, String productId) {
+    public PaymentView(MainMenuView parentView, OrderController orderController, String productName) {
         super(parentView, "결제 진행 단계", true);
         this.parentView = parentView;
         this.orderController = orderController;
-        this.productId = productId;
+        this.productName = productName;
 
         setSize(420, 280);
         setLocationRelativeTo(parentView);
@@ -90,8 +90,8 @@ public class PaymentView extends JDialog {
             }
         }
 
-        // productId 는 PaymentView 가 가지고 있으므로 Controller 를 stateless 하게 유지하기 위해 함께 전달.
-        boolean isSuccess = orderController.processPaymentAndManufacture(productId, paymentType, amount);
+        // productName 은 PaymentView 가 가지고 있으므로 Controller 를 stateless 하게 유지하기 위해 함께 전달.
+        boolean isSuccess = orderController.processPaymentAndManufacture(productName, paymentType, amount);
         if (isSuccess) {
             JOptionPane.showMessageDialog(this, "결제가 정상 승인되었습니다.", "성공", JOptionPane.INFORMATION_MESSAGE);
             parentView.refreshMenuDisplay();

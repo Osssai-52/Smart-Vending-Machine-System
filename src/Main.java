@@ -44,11 +44,13 @@ public class Main {
         seedInventory(inventory);
 
         // 3) Controller (Model 을 생성자 주입)
+        //    OrderController 가 취소 시 View 에 broadcast 하려고 MachineController 를 받으므로
+        //    MachineController 를 먼저 만든다.
         PaymentController   paymentController   = new PaymentController();
         InventoryController inventoryController = new InventoryController(inventory);
-        OrderController     orderController     = new OrderController(
-                inventory, orderQueue, paymentController, inventoryController);
         MachineController   machineController   = new MachineController(orderQueue, salesRepository);
+        OrderController     orderController     = new OrderController(
+                inventory, orderQueue, paymentController, inventoryController, machineController);
         AdminController     adminController     = new AdminController(
                 inventory, salesRepository, inventoryController);
 
@@ -59,7 +61,8 @@ public class Main {
             new MainMenuView(orderController, adminController, machineController);
 
             // 제조 대기 현황은 항상 띄워두고 콜백으로 갱신 → 매번 새 창 만들 필요 X
-            new OrderStatusView(machineController);
+            // OrderController 도 함께 넘김 → 화면 안에서 "주문 취소" 기능을 노출하기 위해.
+            new OrderStatusView(machineController, orderController);
 
             // 대기열 소비 시작
             machineController.startMaker();

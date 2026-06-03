@@ -62,12 +62,15 @@ public class AdminController {
     /**
      * 재고 보충 요청.
      *
-     * @param productId 상품 ID (빈 문자열/null 거부)
-     * @param countText 수량 문자열 (숫자 아니거나 음수면 false)
+     * <p>관리자도 사용자와 동일하게 상품명을 입력한다 (UI 일관성).
+     * 내부에서 상품명 → Product → ID 변환 후 InventoryController 에 위임.
+     *
+     * @param productName 상품명 (빈 문자열/null 거부)
+     * @param countText   수량 문자열 (숫자 아니거나 음수면 false)
      * @return 보충 성공 여부
      */
-    public boolean replenishInventory(String productId, String countText) {
-        if (productId == null || productId.isEmpty()) {
+    public boolean replenishInventory(String productName, String countText) {
+        if (productName == null || productName.isEmpty()) {
             return false;
         }
         int qty;
@@ -81,13 +84,29 @@ public class AdminController {
             System.out.println("[AdminController] 보충 수량은 1 이상이어야 합니다: " + qty);
             return false;
         }
+
+        Product product = findProductByName(productName);
+        if (product == null) {
+            System.out.println("[AdminController] 존재하지 않는 상품: " + productName);
+            return false;
+        }
         try {
-            inventoryController.addStock(productId, qty);
+            inventoryController.addStock(product.getId(), qty);
             return true;
         } catch (IllegalArgumentException e) {
             System.out.println("[AdminController] " + e.getMessage());
             return false;
         }
+    }
+
+    /** 상품명으로 Product 를 찾는다 (정확 일치). 없으면 null. */
+    private Product findProductByName(String productName) {
+        for (Product p : inventory.listAll().values()) {
+            if (productName.equals(p.getName())) {
+                return p;
+            }
+        }
+        return null;
     }
 
     // ------------------------------------------------------------

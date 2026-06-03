@@ -17,10 +17,12 @@ public abstract class Product {
         this.stock = stock;
     }
 
-    // 공통 동작: 상품을 외부로 내보내는 동작 (재고 1 감소 + 콘솔 출력)
-    // MakerThread에서 DONE 직전에 호출
+    // 공통 동작: 상품을 외부로 내보내는 동작 (콘솔 출력).
+    // MakerThread 에서 DONE 직전에 호출된다.
+    //
+    // ※ 재고 차감은 결제 시점에 InventoryController.reduceStock 으로 이미 처리되었으므로
+    //   여기서는 stock 을 또 줄이지 않는다. 차감 책임을 Inventory 한 곳으로 통일.
     public final void dispense() {
-        decreaseStock();
         System.out.println("[배출] " + name + " 이(가) 나왔습니다.");
     }
 
