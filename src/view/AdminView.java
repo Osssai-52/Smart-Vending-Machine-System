@@ -1,33 +1,117 @@
 package view;
 
+
+import controller.AdminController;
+import model.Product;
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
 import java.util.List;
 
-// view/AdminView.java
-// 관리자 시스템 화면.
-//
-// 구성 컴포넌트 (보고서 p.5):
-//  - JTextField : 보충 수량 입력
-//  - JTextArea  : sales.txt 파일 데이터 출력 영역 (매출 내역)
-//  - JButton    : "재고 보충", "매출 내역 불러오기", "메인으로"
-//  - JTable 또는 JList : (선택) 상품별 현재 재고 표시
-//
-// 책임:
-//  - 재고 보충: 사용자가 입력한 상품 ID + 수량을 InventoryController.addStock() 로 위임.
-//  - 매출 조회: AdminController.loadSales() 호출 결과를 JTextArea 에 표시.
-//  - 관리자 인증 UI(간단한 패스워드 입력) 는 진입 시점에 다이얼로그로 처리하거나 별도 화면으로 둔다.
-//
-// 캡슐화:
-//  - 보충 수량 입력 검증(숫자 여부, 음수 여부)은 Controller 에서 책임지도록 위임.
+public class AdminView extends JFrame {
+    private final AdminController adminController;
+    private JTextField productIdInput;
+    private JTextField stockCountInput;
+    private JTextArea salesLogArea;
+    private JTable inventoryTable;
+    private DefaultTableModel tableModel;
+    private JButton replenishButton;
+    private JButton loadSalesButton;
+    private JButton mainMenuButton;
 
-public class AdminView {
+    public AdminView(AdminController adminController) {
+        this.adminController = adminController;
 
-    /**
-     * 매출 내역 List 를 받아 JTextArea 에 표시한다.
-     * AdminController.refreshAdminView() 에서 EDT 위에서 호출한다.
-     *
-     * TODO(김남주): JTextArea 갱신 로직 구현.
-     */
-    public void displaySales(List<String> records) {
-        // empty — 김남주가 구현
+        setTitle("스마트 자판기 시스템 - 관리자 모드");
+        setSize(750, 500);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setLayout(new BorderLayout(15, 15));
+
+        JLabel titleLabel = new JLabel("⚙️ 자판기 관리자 컨트롤 시스템 ⚙️", SwingConstants.CENTER);
+        add(titleLabel, BorderLayout.NORTH);
+
+        JPanel centerPanel = new JPanel(new GridLayout(1, 2, 15, 0));
+        JPanel leftPanel = new JPanel(new BorderLayout(5, 5));
+        
+        String[] columnNames = {"상품 ID", "상품명", "현재 재고"};
+        tableModel = new DefaultTableModel(columnNames, 0);
+        inventoryTable = new JTable(tableModel);
+        leftPanel.add(new JScrollPane(inventoryTable), BorderLayout.CENTER);
+        centerPanel.add(leftPanel);
+
+        JPanel rightPanel = new JPanel(new BorderLayout(5, 5));
+        salesLogArea = new JTextArea();
+        salesLogArea.setEditable(false);
+        rightPanel.add(new JScrollPane(salesLogArea), BorderLayout.CENTER);
+        centerPanel.add(rightPanel);
+        add(centerPanel, BorderLayout.CENTER);
+
+        JPanel bottomPanel = new JPanel(new GridLayout(2, 1, 5, 5));
+        JPanel inputRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 5));
+        productIdInput = new JTextField(6);
+        stockCountInput = new JTextField(6);
+        replenishButton = new JButton("재고 보충");
+
+        inputRow.add(new JLabel("상품 ID:"));
+        inputRow.add(productIdInput);
+        inputRow.add(new JLabel("보충 수량:"));
+        inputRow.add(stockCountInput);
+        inputRow.add(replenishButton);
+        bottomPanel.add(inputRow);
+
+        JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 5));
+        loadSalesButton = new JButton("매출 내역 불러오기");
+        mainMenuButton = new JButton("메인으로");
+        buttonRow.add(loadSalesButton);
+        buttonRow.add(mainMenuButton);
+        bottomPanel.add(buttonRow);
+        add(bottomPanel, BorderLayout.SOUTH);
+
+        replenishButton.addActionListener(e -> handleReplenish());
+        loadSalesButton.addActionListener(e -> handleLoadSales());
+        mainMenuButton.addActionListener(e -> dispose());
+
+        refreshInventoryTable();
+        setVisible(true);
+    }
+
+    private void handleReplenish() {
+        String productId = productIdInput.getText().trim();
+        String countText = stockCountInput.getText().trim();
+
+        if (productId.isEmpty() || countText.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "모두 입력해주세요.", "알림", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        boolean isSuccess = adminController.replenishInventory(productId, countText);
+        if (isSuccess) {
+            JOptionPane.showMessageDialog(this, "재고가 보충되었습니다.", "완료", JOptionPane.INFORMATION_MESSAGE);
+            productIdInput.setText("");
+            stockCountInput.setText("");
+            refreshInventoryTable();
+        } else {
+            JOptionPane.showMessageDialog(this, "재고 보충 실패 수량을 확인하세요.", "오류", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void handleLoadSales() {
+        String salesLog = adminController.loadSales();
+        if (salesLog == null || salesLog.isEmpty()) {
+            salesLogArea.setText("기록된 매출 내역 파일이 없습니다.");
+        } else {
+            salesLogArea.setText(salesLog);
+        }
+    }
+
+    private void refreshInventoryTable() {
+        tableModel.setRowCount(0);
+        List<Product> productList = adminController.getAllProducts();
+        if (productList != null) {
+            for (Product p : productList) {
+                tableModel.addRow(new Object[]{p.getId(), p.getName(), p.getStock() + "개"});
+            }
+        }
     }
 }

@@ -1,39 +1,92 @@
 package view;
 
-// view/MainMenuView.java
-// 메인 메뉴 & 상품 선택 화면. 보고서 p.5 의 ProductSelectionView 와 동일 역할.
-//
-// 구성 컴포넌트 (보고서 명시):
-//  - JTextArea  : 메뉴(상품 리스트) 표시
-//  - JTextField : 상품 ID 입력
-//  - JButton    : "주문하기", "관리자 모드 진입"
-//
-// 책임:
-//  - 화면을 렌더링한다 (JFrame / JPanel 구성).
-//  - 사용자의 입력(상품 ID, 버튼 클릭)을 잡아 컨트롤러에 위임한다 — 직접 Model 을 만지지 않는다.
-//  - refreshMenuDisplay() : InventoryController 또는 MachineController 에서 호출하면
-//    현재 재고를 다시 읽어 JTextArea 를 갱신한다.
-//
-// 단방향 흐름 (보고서 p.5):
-//   View → Controller → Model.
-//   View 는 Controller 의 참조만 가진다 (생성자 주입).
-//
-// 캡슐화 장벽 (보고서 p.5):
-//   "뷰가 직접 연산하지 않고 컨트롤러에 파라미터만 안전하게 전달".
-//   → 버튼 핸들러는 controller.createOrder(productId) 만 호출.
-//
-// 다형성 활용 (보고서 p.5):
-//   "부모 타입(Product) 으로 리스트를 일괄 수집" → Inventory.listAll() 결과를 Product 타입으로 표시.
+import controller.OrderController;
+import controller.AdminController;
+import model.Product;
+import javax.swing.*;
+import java.awt.*;
+import java.util.List;
 
-public class MainMenuView {
+public class MainMenuView extends JFrame {
+    private final OrderController orderController;
+    private final AdminController adminController;
+    private JTextArea menuDisplayArea;
+    private JTextField productIdInput;
+    private JButton orderButton;
+    private JButton adminButton;
 
-    /**
-     * 현재 재고를 다시 읽어 메뉴 표시를 갱신한다.
-     * InventoryController 에서 EDT 위에서 호출한다.
-     *
-     * TODO(김남주): JTextArea 갱신 로직 구현.
-     */
+    public MainMenuView(OrderController orderController, AdminController adminController) {
+        this.orderController = orderController;
+        this.adminController = adminController;
+
+        setTitle("스마트 웰니스 자판기 시스템");
+        setSize(550, 450);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setLayout(new BorderLayout(10, 10));
+
+        JLabel titleLabel = new JLabel("🥤 SMART VENDING MACHINE 🥤", SwingConstants.CENTER);
+        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
+        add(titleLabel, BorderLayout.NORTH);
+
+        menuDisplayArea = new JTextArea();
+        menuDisplayArea.setEditable(false);
+        menuDisplayArea.setFont(new Font("D2Coding", Font.PLAIN, 14));
+        add(new JScrollPane(menuDisplayArea), BorderLayout.CENTER);
+
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+        productIdInput = new JTextField(8);
+        orderButton = new JButton("주문하기");
+        adminButton = new JButton("관리자 모드 진입");
+
+        bottomPanel.add(new JLabel("상품 ID 입력:"));
+        bottomPanel.add(productIdInput);
+        bottomPanel.add(orderButton);
+        bottomPanel.add(adminButton);
+        add(bottomPanel, BorderLayout.SOUTH);
+
+        orderButton.addActionListener(e -> handleOrderAction());
+        adminButton.addActionListener(e -> handleAdminAction());
+
+        refreshMenuDisplay();
+        setVisible(true);
+    }
+
     public void refreshMenuDisplay() {
-        // empty — 김남주가 구현
+        menuDisplayArea.setText("");
+        menuDisplayArea.append(" ====================================================\n");
+        menuDisplayArea.append("   상품 ID\t상품 이름\t\t가격\t재고 상태\n");
+        menuDisplayArea.append(" ====================================================\n");
+
+        List<Product> products = orderController.getAvailableProducts();
+        if (products == null || products.isEmpty()) {
+            menuDisplayArea.append("   현재 자판기에 등록된 상품이 없습니다.\n");
+        } else {
+            for (Product p : products) {
+                String stockText = p.getStock() > 0 ? p.getStock() + "개" : "품절";
+                menuDisplayArea.append(String.format("   [%s]\t%-15s\t%d원\t%s\n", 
+                        p.getId(), p.getName(), p.getPrice(), stockText));
+            }
+        }
+        menuDisplayArea.append(" ====================================================\n");
+    }
+
+    private void handleOrderAction() {
+        String productId = productIdInput.getText().trim();
+        if (productId.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "상품 ID를 입력해주세요.", "알림", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        boolean isOrderCreated = orderController.createOrder(productId, "GuestUser");
+        if (isOrderCreated) {
+            productIdInput.setText("");
+            new PaymentView(this, orderController, productId);
+        } else {
+            JOptionPane.showMessageDialog(this, "존재하지 않거나 품절된 상품입니다.", "오류", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void handleAdminAction() {
+        new AdminView(adminController);
     }
 }

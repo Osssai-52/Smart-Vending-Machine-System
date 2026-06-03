@@ -1,32 +1,54 @@
 package view;
 
-import model.order.Order;
+import controller.MachineController;
+import javax.swing.*;
+import java.awt.*;
 
-// view/OrderStatusView.java
-// 실시간 제조 대기 현황 화면.
-//
-// 구성 컴포넌트 (보고서 p.5):
-//  - JLabel    : 현재 제조중인 상품 표시
-//  - JTextArea : OrderQueue 대기열 표시
-//
-// 책임:
-//  - StatusViewListener 를 구현한다 (implements StatusViewListener).
-//  - 생성 시 MachineController.registerStatusView(this) 로 자기 자신을 등록.
-//  - onStatusChanged(Order) 콜백을 받으면 SwingUtilities.invokeLater(...) 안에서
-//    OrderQueue.peekAll() 결과를 다시 그린다.
-//
-// 멀티스레드 안전성 (보고서 p.5):
-//  - "멀티스레드 환경에서 UI 컴포넌트를 안전하게 갱신" → 모든 UI 변경은 EDT 에서만.
-//  - "화면이 스스로 루프를 돌지 않고, 상태 변화가 있을 때만 컨트롤러가 화면을 리렌더링" → polling 금지.
+public class OrderStatusView extends JFrame implements StatusViewListener {
+    private final MachineController machineController;
+    private JLabel currentProductLabel;
+    private JTextArea queueDisplayArea;
 
-public class OrderStatusView implements StatusViewListener {
+    public OrderStatusView(MachineController machineController) {
+        this.machineController = machineController;
 
-    /**
-     * 제조 상태 변화 콜백.
-     * TODO(김남주): JLabel / JTextArea 갱신 로직 구현.
-     */
+        setTitle("실시간 음료 제조 모니터링 시스템");
+        setSize(500, 400);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setLayout(new BorderLayout(15, 15));
+
+        JPanel northPanel = new JPanel(new BorderLayout());
+        currentProductLabel = new JLabel("대기 중...", SwingConstants.CENTER);
+        currentProductLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
+        northPanel.add(currentProductLabel, BorderLayout.CENTER);
+        add(northPanel, BorderLayout.NORTH);
+
+        JPanel centerPanel = new JPanel(new BorderLayout());
+        queueDisplayArea = new JTextArea();
+        queueDisplayArea.setEditable(false);
+        queueDisplayArea.setFont(new Font("D2Coding", Font.PLAIN, 13));
+        centerPanel.add(new JScrollPane(queueDisplayArea), BorderLayout.CENTER);
+        add(centerPanel, BorderLayout.CENTER);
+
+        machineController.registerStatusView(this);
+        setVisible(true);
+    }
+
     @Override
-    public void onStatusChanged(Order order) {
-        // empty — 김남주가 구현
+    public void onOrderStatusChanged(String currentStatus, String queueDetails) {
+        SwingUtilities.invokeLater(() -> {
+            if (currentStatus == null || currentStatus.isEmpty()) {
+                currentProductLabel.setText("모든 제조 완료 / 대기 중");
+            } else {
+                currentProductLabel.setText("☕ " + currentStatus + " 제조 중...");
+            }
+
+            if (queueDetails == null || queueDetails.isEmpty()) {
+                queueDisplayArea.setText(" 현재 대기 중인 주문이 없습니다.");
+            } else {
+                queueDisplayArea.setText(queueDetails);
+            }
+        });
     }
 }
