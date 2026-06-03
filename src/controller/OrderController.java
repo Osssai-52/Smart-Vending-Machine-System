@@ -1,35 +1,33 @@
 package controller;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import model.Inventory;
 import model.order.Order;
 import model.order.OrderQueue;
 import model.order.OrderStatus;
+import model.payment.CardPayment;
+import model.payment.CashPayment;
 import model.payment.Payment;
+import model.payment.PointPayment;
 import model.product.Product;
 
 /**
- * 주문 생성/취소 컨트롤러.
+ * 주문 컨트롤러.
  *
  * <p>책임:
  * <ul>
- *   <li>주문 요청을 받아 [상품 조회 → 결제 → 재고 차감 → 대기열 등록] 순서로 처리한다.</li>
- *   <li>WAITING 상태인 주문에 한해 취소를 처리하고 재고를 복구한다.</li>
+ *   <li>{@link #getAvailableProducts} : 메뉴 표시용 상품 목록 제공.</li>
+ *   <li>{@link #createOrder} : 주문 가능 여부 사전 검증 (상품 존재 + 재고 > 0).</li>
+ *   <li>{@link #processPaymentAndManufacture} : 결제 → 재고 차감 → 대기열 등록 (실제 주문 처리).</li>
+ *   <li>{@link #cancelOrder} : WAITING 상태 주문만 취소 + 재고 복구.</li>
  * </ul>
  *
- * <p>의존성 (생성자 주입):
- * <ul>
- *   <li>{@link Inventory}            : 상품 조회</li>
- *   <li>{@link OrderQueue}           : 결제된 주문을 제조 대기열에 등록</li>
- *   <li>{@link PaymentController}    : 결제 위임</li>
- *   <li>{@link InventoryController}  : 재고 차감/복구 위임</li>
- * </ul>
- *
- * <p>주요 예외 흐름:
- * <ul>
- *   <li>{@code Inventory.getProduct} 는 없는 상품이면 {@link IllegalArgumentException} 을 던진다.</li>
- *   <li>{@code Inventory.reduceStock} 는 재고 부족이면 {@link IllegalStateException} 을 던진다.</li>
- *   <li>본 컨트롤러는 두 예외를 모두 잡아 사용자에게는 단순 실패(null)로만 보고한다.</li>
- * </ul>
+ * <p>왜 createOrder 와 processPaymentAndManufacture 가 두 단계로 나뉘나:
+ * View 흐름이 [메인 메뉴 → 결제 화면] 두 단계라 검증과 실제 처리를 분리해 두면
+ * "결제 화면 진입 후 결제 취소" 같은 케이스에서 부작용이 남지 않는다.
+ * (createOrder 는 부작용 없는 검증만 수행)
  */
 public class OrderController {
 
@@ -48,79 +46,134 @@ public class OrderController {
         this.inventoryController = inventoryController;
     }
 
-    /**
-     * 주문 생성 요청을 처리한다.
-     *
-     * <p>흐름:
-     * <ol>
-     *   <li>입력값 검증</li>
-     *   <li>상품 조회 (없으면 실패)</li>
-     *   <li>결제 시도 (실패 시 종료)</li>
-     *   <li>재고 차감 (실패 시 종료 — 본 프로젝트 범위에선 결제 환불은 생략)</li>
-     *   <li>{@link Order} 생성 → {@link OrderQueue} 에 enqueue</li>
-     * </ol>
-     *
-     * @return 생성된 Order. 실패 시 null.
-     */
-    public Order createOrder(String productId, Payment payment) {
-        // 1) 입력 검증
-        if (productId == null || productId.isEmpty()) {
-            System.out.println("[OrderController] 상품 ID 가 비어 있습니다.");
-            return null;
-        }
-        if (payment == null) {
-            System.out.println("[OrderController] 결제 수단이 선택되지 않았습니다.");
-            return null;
-        }
+    // ------------------------------------------------------------
+    // 메뉴 조회
+    // ------------------------------------------------------------
 
-        // 2) 상품 조회 — 존재하지 않으면 Inventory 가 IllegalArgumentException 을 던진다.
+    /** 메뉴 표시용 전체 상품 목록 (방어적 복사). */
+    public List<Product> getAvailableProducts() {
+        return new ArrayList<>(inventory.listAll().values());
+    }
+
+    // ------------------------------------------------------------
+    // 주문 사전 검증 (MainMenuView 의 "주문하기" 클릭 시점)
+    // ------------------------------------------------------------
+
+    /**
+     * 주문 가능 여부만 검증한다 — 실제 결제/재고차감은 하지 않는다.
+     * @param productId 상품 ID
+     * @param userName  주문자 이름 (현재는 로그 용도)
+     * @return 상품이 존재하고 재고가 1 이상이면 true
+     */
+    public boolean createOrder(String productId, String userName) {
+        if (productId == null || productId.isEmpty()) {
+            return false;
+        }
+        try {
+            Product product = inventory.getProduct(productId);
+            if (product.getStock() <= 0) {
+                System.out.println("[OrderController] 품절: " + product.getName());
+                return false;
+            }
+            System.out.println("[OrderController] 주문 검증 통과: "
+                             + product.getName() + " (요청자: " + userName + ")");
+            return true;
+        } catch (IllegalArgumentException e) {
+            System.out.println("[OrderController] " + e.getMessage());
+            return false;
+        }
+    }
+
+    // ------------------------------------------------------------
+    // 결제 + 제조 (PaymentView 의 "결제하기" 클릭 시점)
+    // ------------------------------------------------------------
+
+    /**
+     * 실제 주문 처리: 결제 → 재고 차감 → 대기열 등록.
+     *
+     * @param productId   결제할 상품 ID
+     * @param paymentType "CASH" / "CARD" / "POINT"
+     * @param amount      현금일 때만 의미가 있는 투입 금액 (카드/포인트는 0)
+     * @return 모든 단계가 성공하면 true
+     */
+    public boolean processPaymentAndManufacture(String productId, String paymentType, int amount) {
+        // 1) 상품 조회 (없으면 실패)
         Product product;
         try {
             product = inventory.getProduct(productId);
         } catch (IllegalArgumentException e) {
             System.out.println("[OrderController] " + e.getMessage());
-            return null;
+            return false;
         }
 
-        // 3) 결제
-        boolean paid = paymentController.pay(payment, product.getPrice());
-        if (!paid) {
-            System.out.println("[OrderController] 결제 실패: " + product.getName());
-            return null;
+        // 2) 결제 수단 객체 생성 (View 가 직접 Payment 구현체를 알 필요 없도록 여기서 변환)
+        Payment payment = newPayment(paymentType, amount);
+        if (payment == null) {
+            return false;
+        }
+
+        // 3) 결제 시도
+        if (!paymentController.pay(payment, product.getPrice())) {
+            return false;
         }
 
         // 4) 재고 차감
         try {
             inventoryController.reduceStock(productId, 1);
         } catch (IllegalStateException | IllegalArgumentException e) {
-            // 결제는 이미 성공했지만 재고가 없어 진행 불가.
-            // 실 운영이라면 결제 환불(보상 트랜잭션)이 필요하지만 본 과제 범위에서는 로그만 남긴다.
-            System.out.println("[OrderController] 재고 차감 실패로 주문 취소: " + e.getMessage());
-            return null;
+            // 결제는 이미 성공했지만 재고가 없는 경우. 실 운영이라면 환불 처리 필요.
+            System.out.println("[OrderController] 재고 차감 실패: " + e.getMessage());
+            return false;
         }
 
-        // 5) 주문 생성 후 대기열 등록
+        // 5) 주문 생성 후 대기열 등록 → MakerThread 가 깨어남
         Order order = new Order(product, payment);
         orderQueue.enqueue(order);
-        System.out.println("[OrderController] 주문 생성 완료: " + product.getName());
-        return order;
+        System.out.println("[OrderController] 주문 접수: " + product.getName());
+        return true;
     }
 
     /**
-     * 주문 취소 요청을 처리한다.
-     * 아직 제조가 시작되지 않은 (WAITING) 주문만 취소할 수 있다.
+     * paymentType 문자열을 실제 Payment 구현체로 변환한다.
      *
-     * <p>동시성: MakerThread 가 dequeue 직후 상태를 MAKING 으로 바꾸는 시점과
-     * 사용자가 취소 버튼을 누르는 시점이 겹칠 수 있다. Order 객체를 락으로 잡아
-     * "상태 확인 → 변경" 사이를 보호한다.
-     *
-     * @return 취소 성공 여부
+     * <p>지금은 데모용 고정값(카드 번호/한도, 보유 포인트) 으로 만든다.
+     * 실 운영에서는 사용자 계정에서 가져올 값이다.
+     */
+    private Payment newPayment(String paymentType, int amount) {
+        if (paymentType == null) {
+            return null;
+        }
+        switch (paymentType) {
+            case "CASH": {
+                CashPayment cash = new CashPayment();
+                cash.insert(amount);
+                return cash;
+            }
+            case "CARD":
+                // 데모용 가상 카드 (실제로는 사용자 선택 카드를 받아야 함)
+                return new CardPayment("1234567812345678", 100_000);
+            case "POINT":
+                // 데모용 가상 포인트 잔액
+                return new PointPayment(50_000);
+            default:
+                System.out.println("[OrderController] 알 수 없는 결제 방식: " + paymentType);
+                return null;
+        }
+    }
+
+    // ------------------------------------------------------------
+    // 주문 취소 (현재 view 에서는 노출 안 했지만 controller API 는 유지)
+    // ------------------------------------------------------------
+
+    /**
+     * WAITING 상태 주문만 취소 + 재고 복구.
+     * MakerThread 가 dequeue 직후 MAKING 으로 바꾸는 시점과 겹칠 수 있으므로
+     * Order 객체를 락으로 잡아 상태 전이를 보호한다.
      */
     public boolean cancelOrder(Order order) {
         if (order == null) {
             return false;
         }
-
         synchronized (order) {
             if (order.getStatus() != OrderStatus.WAITING) {
                 System.out.println("[OrderController] 제조가 이미 시작되어 취소할 수 없습니다.");
@@ -128,8 +181,6 @@ public class OrderController {
             }
             order.setStatus(OrderStatus.CANCELED);
         }
-
-        // 재고 복구 — 락 보유 시간을 최소화하기 위해 동기화 블록 밖에서 호출.
         inventoryController.addStock(order.getProduct().getId(), 1);
         System.out.println("[OrderController] 주문 취소 완료: " + order.getProduct().getName());
         return true;

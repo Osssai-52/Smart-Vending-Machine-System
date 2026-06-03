@@ -90,12 +90,15 @@ public class PaymentView extends JDialog {
             }
         }
 
-        boolean isSuccess = orderController.processPaymentAndManufacture(paymentType, amount);
+        // productId 는 PaymentView 가 가지고 있으므로 Controller 를 stateless 하게 유지하기 위해 함께 전달.
+        boolean isSuccess = orderController.processPaymentAndManufacture(productId, paymentType, amount);
         if (isSuccess) {
             JOptionPane.showMessageDialog(this, "결제가 정상 승인되었습니다.", "성공", JOptionPane.INFORMATION_MESSAGE);
             parentView.refreshMenuDisplay();
             dispose();
-            new OrderStatusView(orderController.getMachineController());
+            // 제조 대기 현황 화면은 Main 에서 한 번만 만들고 항상 띄워둔다.
+            // 상태 변화는 MachineController → StatusViewListener 콜백으로 자동 반영되므로
+            // 여기서 별도 창을 띄울 필요가 없다 (창 중복 생성과 리스너 누수를 막는다).
         } else {
             JOptionPane.showMessageDialog(this, "결제 실패: 잔액을 확인하세요.", "오류", JOptionPane.ERROR_MESSAGE);
         }

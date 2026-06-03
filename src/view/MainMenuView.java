@@ -2,7 +2,7 @@ package view;
 
 import controller.OrderController;
 import controller.AdminController;
-import model.Product;
+import model.product.Product;
 import javax.swing.*;
 import java.awt.*;
 import java.util.List;

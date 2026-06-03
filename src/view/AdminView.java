@@ -2,7 +2,7 @@ package view;
 
 
 import controller.AdminController;
-import model.Product;
+import model.product.Product;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
