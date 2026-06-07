@@ -12,26 +12,11 @@ import model.order.OrderQueue;
 import model.order.OrderStatus;
 import view.StatusViewListener;
 
-/**
- * 자판기 "기계 측" 컨트롤러.
- *
- * <p>책임:
- * <ul>
- *   <li>{@link MakerThread} 의 생명주기(시작/중지)를 관리한다.</li>
- *   <li>MakerThread 가 보낸 이벤트를 받아 OrderQueue 를 View 친화적인 문자열로 가공하고,
- *       등록된 모든 {@link StatusViewListener} 에게 EDT 위에서 broadcast 한다.</li>
- * </ul>
- *
- * <p>왜 가공(StringBuilder 등)이 Controller 책임인가:
- * View 는 표시만, 작업 스레드는 도메인 로직만. 둘 사이의 "표현용 가공" 은 Controller 가
- * 맡는 것이 결합도를 낮춘다. View 는 큐의 자료구조도, Order 클래스도 알 필요가 없다.
- *
- * <p>동시성:
- * <ul>
- *   <li>리스너 목록은 {@link CopyOnWriteArrayList} — 등록/해제와 broadcast 가 다른 스레드에서 동시에 일어나도 안전.</li>
- *   <li>UI 갱신은 반드시 EDT 에서 ({@link SwingUtilities#invokeLater}).</li>
- * </ul>
- */
+// 자판기 기계 측 컨트롤러
+// MakerThread의 시작/종료 관리
+// MakerThread가 보낸 이벤트를 받아 OrderQueue를 View에 맞는 문자열로 가공. 등록된 모든 StatusViewListener에게 EDT 위에서 broadcast함
+// Listener 목록은 CopyOnWriteArrayList → 등록/해제와 broadcast가 다른 스레드에서 동시에 일어나도 안전
+
 public class MachineController {
 
     private final OrderQueue orderQueue;
@@ -46,10 +31,7 @@ public class MachineController {
         this.salesRepository = salesRepository;
     }
 
-    // ------------------------------------------------------------
-    // MakerThread 생명주기
-    // ------------------------------------------------------------
-
+    // MakerThread 시작/종료
     public void startMaker() {
         if (makerThread != null && makerThread.isAlive()) {
             return;
@@ -73,10 +55,7 @@ public class MachineController {
         System.out.println("[MachineController] MakerThread 종료");
     }
 
-    // ------------------------------------------------------------
-    // 리스너 등록/해제 (보고서 p.5: machineController.registerStatusView(this))
-    // ------------------------------------------------------------
-
+    // 리스너 등록/해제 
     public void registerStatusView(StatusViewListener listener) {
         if (listener == null) return;
         statusListeners.addIfAbsent(listener);
@@ -86,14 +65,7 @@ public class MachineController {
         statusListeners.remove(listener);
     }
 
-    // ------------------------------------------------------------
-    // MakerThread → broadcast
-    // ------------------------------------------------------------
-
-    /**
-     * MakerThread 가 호출. 현재 제조 중인 주문(null 이면 제조 완료)을 받아
-     * 큐 상태와 함께 모든 View 리스너에게 broadcast 한다.
-     */
+    // MakerThread 호출. 현재 제조 중인 주문을 받아 큐 상태와 함께 모든 View Listener에게 broadcast
     public void onMakerEvent(Order currentOrder) {
         // 1) 현재 제조 중 상품명 결정
         String currentStatus = "";
@@ -111,14 +83,14 @@ public class MachineController {
                 try {
                     listener.onOrderStatusChanged(csCaptured, qdCaptured);
                 } catch (RuntimeException e) {
-                    // 한 리스너의 예외가 다른 리스너 통지를 막지 않도록 격리.
+                    // 한 리스너의 예외가 다른 리스너 통지를 막지 않도록 격리
                     System.out.println("[MachineController] 리스너 통지 중 오류: " + e.getMessage());
                 }
             }
         });
     }
 
-    /** 대기열을 사용자가 읽기 쉬운 형태로 가공한다. */
+    // 대기열을 사용자가 읽기 쉬운 형태로 가공
     private String formatQueueDetails() {
         List<Order> orders = orderQueue.peekAll();
         if (orders.isEmpty()) {
