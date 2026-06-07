@@ -5,6 +5,7 @@ import controller.AdminController;
 import controller.MachineController;
 import model.product.Product;
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
 
@@ -12,7 +13,8 @@ public class MainMenuView extends JFrame {
     private final OrderController orderController;
     private final AdminController adminController;
     private final MachineController machineController;   // AdminView 가 리스너 등록할 때 필요
-    private JTextArea menuDisplayArea;
+    private JTable menuTable;
+    private DefaultTableModel tableModel;
     private JTextField productNameInput;
     private JButton orderButton;
     private JButton adminButton;
@@ -30,14 +32,21 @@ public class MainMenuView extends JFrame {
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
-        JLabel titleLabel = new JLabel("🥤 SMART VENDING MACHINE 🥤", SwingConstants.CENTER);
+        JLabel titleLabel = new JLabel("SMART VENDING MACHINE", SwingConstants.CENTER);
         titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
         add(titleLabel, BorderLayout.NORTH);
 
-        menuDisplayArea = new JTextArea();
-        menuDisplayArea.setEditable(false);
-        menuDisplayArea.setFont(new Font("D2Coding", Font.PLAIN, 14));
-        add(new JScrollPane(menuDisplayArea), BorderLayout.CENTER);
+        String[] columnNames = {"상품 이름", "가격", "재고 상태"};
+        tableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;   // 사용자가 표 셀을 직접 편집하지 못하게
+            }
+        };
+        menuTable = new JTable(tableModel);
+        menuTable.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+        menuTable.setRowHeight(28);
+        add(new JScrollPane(menuTable), BorderLayout.CENTER);
 
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
         productNameInput = new JTextField(12);
@@ -58,22 +67,18 @@ public class MainMenuView extends JFrame {
     }
 
     public void refreshMenuDisplay() {
-        menuDisplayArea.setText("");
-        menuDisplayArea.append(" ====================================================\n");
-        menuDisplayArea.append("   상품 이름            가격        재고 상태\n");
-        menuDisplayArea.append(" ====================================================\n");
-
+        tableModel.setRowCount(0);   // 기존 행 전부 삭제 후 다시 채움
         List<Product> products = orderController.getAvailableProducts();
-        if (products == null || products.isEmpty()) {
-            menuDisplayArea.append("   현재 자판기에 등록된 상품이 없습니다.\n");
-        } else {
+        if (products != null) {
             for (Product p : products) {
                 String stockText = p.getStock() > 0 ? p.getStock() + "개" : "품절";
-                menuDisplayArea.append(String.format("   %-15s   %5d원     %s%n",
-                        p.getName(), p.getPrice(), stockText));
+                tableModel.addRow(new Object[]{
+                    p.getName(),
+                    p.getPrice() + "원",
+                    stockText
+                });
             }
         }
-        menuDisplayArea.append(" ====================================================\n");
     }
 
     private void handleOrderAction() {
