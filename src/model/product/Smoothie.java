@@ -9,7 +9,7 @@ public class Smoothie extends Drink {
 
     public Smoothie(String id, String name, int price, int stock,
                     int ml, boolean isHot, String baseFruit) {
-        super(id, name, price, stock, ml, isHot, 4000); // 스무디 기본 제조시간 4초
+        super(id, name, price, stock, ml, isHot, 20000); // 스무디 기본 제조시간 20초
         this.baseFruit = baseFruit;
     }
 
